@@ -296,6 +296,16 @@ impl Encoder for RespCodec {
                 buf.put(&value[..]);
                 buf.put(&b"\r\n"[..]);
             }
+            RespValue::Array(mut values) => {
+                let len_str = values.len().to_string();
+                buf.reserve(values.len() * 2 + len_str.len());
+                buf.put_u8(b'*');
+                buf.put(&len_str.into_bytes()[..]);
+                buf.put(&b"\r\n"[..]);
+                values.drain(..).for_each(|value| {
+                    self.encode(value, buf).unwrap();
+                });
+            }
             t => {
                 return Err(format!("Unsuported Type: {:?}", t).into());
             }
