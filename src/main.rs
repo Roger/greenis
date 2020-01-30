@@ -400,6 +400,7 @@ async fn decode(
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
     let addr = "127.0.0.1:6142";
     let mut listener = TcpListener::bind(addr).await.unwrap();
     let storage = Arc::new(Mutex::new(HashMap::new()));
