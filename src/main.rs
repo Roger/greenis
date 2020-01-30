@@ -113,7 +113,7 @@ impl RedisCmd {
             RedisCmd::Ping(None) => RespValue::SimpleString("PONG".into()),
             RedisCmd::Ping(Some(value)) => RespValue::BulkString(value.clone()),
             RedisCmd::Get(key) => {
-                // println!("Getting key: {}", key);
+                debug!("Getting key: {}", key);
                 let storage = storage.lock().unwrap();
                 if let Some(value) = storage.get(key) {
                     RespValue::BulkString(value.clone())
@@ -122,12 +122,12 @@ impl RedisCmd {
                 }
             }
             RedisCmd::Set(key, value) => {
-                // println!("Setting key: {} and value: {}", key, value);
+                debug!("Setting: {}: {}", key, value);
                 storage.lock().unwrap().insert(key.clone(), value.clone());
                 RespValue::SimpleString("OK".into())
             }
             RedisCmd::Keys(pattern) => {
-                debug!("keys: {}", pattern);
+                debug!("pattern: {}", pattern);
                 let storage = storage.lock().unwrap();
                 RespValue::Array(
                     storage
