@@ -99,6 +99,7 @@ enum RedisCmd {
     Ping(Option<RedisValue>),
     Get(RedisKey),
     Set(RedisKey, RedisValue),
+    Keys(RedisValue),
     Command,
 }
 
@@ -124,6 +125,16 @@ impl RedisCmd {
                 // println!("Setting key: {} and value: {}", key, value);
                 storage.lock().unwrap().insert(key.clone(), value.clone());
                 RespValue::SimpleString("OK".into())
+            }
+            RedisCmd::Keys(pattern) => {
+                debug!("keys: {}", pattern);
+                let storage = storage.lock().unwrap();
+                RespValue::Array(
+                    storage
+                        .keys()
+                        .map(|k| RespValue::BulkString(k.clone()))
+                        .collect(),
+                )
             }
             // Invalid command
             _ => {
@@ -165,6 +176,7 @@ impl TryFrom<RespValue> for RedisCmd {
                         get_next_value(&mut resp)?,
                     )),
                     "PING" => Ok(RedisCmd::Ping(get_next_value(&mut resp).ok())),
+                    "KEYS" => Ok(RedisCmd::Keys(get_next_value(&mut resp)?)),
                     "COMMAND" => Ok(RedisCmd::Command),
                     "" => Err("No command specified"),
                     _ => Err("Invalid command"),
