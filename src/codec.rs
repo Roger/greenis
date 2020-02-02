@@ -118,6 +118,13 @@ where
     any_send_partial_state(choice((byte(b'*').with(array()), simple_command())))
 }
 
+fn encode_string(prefix: u8, value: String, buf: &mut BytesMut) {
+    buf.reserve(value.len() + 3);
+    buf.put_u8(prefix);
+    buf.put(&value.into_bytes()[..]);
+    buf.put(&b"\r\n"[..]);
+}
+
 impl Encoder for RespCodec {
     type Item = RespValue;
     type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -128,18 +135,10 @@ impl Encoder for RespCodec {
                 buf.reserve(5);
                 buf.put(&b"$-1\r\n"[..]);
             }
-            RespValue::SimpleString(value) => {
-                buf.reserve(value.len() + 3);
-                buf.put_u8(b'+');
-                buf.put(&value.into_bytes()[..]);
-                buf.put(&b"\r\n"[..]);
-            }
-            RespValue::Error(value, _description) => {
-                buf.reserve(value.len() + 3);
-                buf.put_u8(b'-');
-                buf.put(&value.into_bytes()[..]);
-                buf.put(&b"\r\n"[..]);
-            }
+            RespValue::SimpleString(value) => encode_string(b'+', value, buf),
+            // TODO: support description
+            RespValue::Error(value, _description) => encode_string(b'-', value, buf),
+            RespValue::Integer(value) => encode_string(b':', value.to_string(), buf),
             RespValue::BulkString(BulkString(value)) => {
                 let len_str = value.len().to_string();
                 buf.reserve(value.len() + len_str.len() + 5);
@@ -159,9 +158,9 @@ impl Encoder for RespCodec {
                     self.encode(value, buf).unwrap();
                 });
             }
-            t => {
-                return Err(format!("Unsuported Type: {:?}", t).into());
-            }
+            // t => {
+            //     return Err(format!("Unsuported Type: {:?}", t).into());
+            // }
         }
         Ok(())
     }
