@@ -62,6 +62,7 @@ pub enum RedisCmd {
     Get(RedisKey),
     Set(RedisKey, RedisValue),
     Keys(RedisValue),
+    Exists(RedisKey),
     Command,
 }
 
@@ -98,8 +99,14 @@ impl RedisCmd {
                         .collect(),
                 )
             }
-            // Invalid command
-            _ => {
+            RedisCmd::Exists(key) => {
+                debug!("exists: {}", key);
+                let storage = storage.lock().unwrap();
+                RespValue::Integer(storage.contains_key(key).into())
+            }
+            // Unimplemented command
+            cmd => {
+                debug!("Unimplemented command: {:?}", cmd);
                 return Err(());
             }
         };
@@ -139,6 +146,7 @@ impl TryFrom<RespValue> for RedisCmd {
                     )),
                     "PING" => Ok(RedisCmd::Ping(get_next_value(&mut resp).ok())),
                     "KEYS" => Ok(RedisCmd::Keys(get_next_value(&mut resp)?)),
+                    "EXISTS" => Ok(RedisCmd::Exists(get_next_value(&mut resp)?)),
                     "COMMAND" => Ok(RedisCmd::Command),
                     "" => Err("No command specified"),
                     _ => Err("Invalid command"),
