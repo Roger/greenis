@@ -6,6 +6,12 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct BulkString(pub Vec<u8>);
 
+impl BulkString {
+    pub fn append(&mut self, other: &mut BulkString) {
+        self.0.append(&mut other.0);
+    }
+}
+
 impl fmt::Display for BulkString {
     /// Try to display a friendly string, not a vec of u8
     /// most of the time BulkStrings are a string, but can be used to store binary data
@@ -61,6 +67,7 @@ pub enum RedisCmd {
     Ping(Option<RedisValue>),
     Get(RedisKey),
     Set(RedisKey, RedisValue),
+    Append(RedisKey, RedisValue),
     Keys(RedisValue),
     Exists(RedisKey),
     Command,
@@ -69,10 +76,10 @@ pub enum RedisCmd {
 impl RedisCmd {
     /// Excecute the command and return the RespValue to reply to the client
     pub fn execute(
-        self: Self,
+        mut self,
         storage: Arc<Mutex<HashMap<RedisKey, RedisValue>>>,
     ) -> Result<RespValue, ()> {
-        let result = match &self {
+        let result = match &mut self {
             RedisCmd::Ping(None) => RespValue::SimpleString("PONG".into()),
             RedisCmd::Ping(Some(value)) => RespValue::BulkString(value.clone()),
             RedisCmd::Get(key) => {
@@ -88,6 +95,13 @@ impl RedisCmd {
                 debug!("Setting: {}: {}", key, value);
                 storage.lock().unwrap().insert(key.clone(), value.clone());
                 RespValue::SimpleString("OK".into())
+            }
+            RedisCmd::Append(key, value) => {
+                debug!("Setting: {}: {}", key, value);
+                let mut storage = storage.lock().unwrap();
+                let current_value = storage.entry(key.clone()).or_insert(BulkString("".into()));
+                current_value.append(value);
+                RespValue::Integer((&current_value).0.len() as i64)
             }
             RedisCmd::Keys(pattern) => {
                 debug!("pattern: {}", pattern);
@@ -141,6 +155,10 @@ impl TryFrom<RespValue> for RedisCmd {
                 match cmd.to_string().unwrap_or_default().to_uppercase().as_ref() {
                     "GET" => Ok(RedisCmd::Get(get_next_value(&mut resp)?)),
                     "SET" => Ok(RedisCmd::Set(
+                        get_next_value(&mut resp)?,
+                        get_next_value(&mut resp)?,
+                    )),
+                    "APPEND" => Ok(RedisCmd::Append(
                         get_next_value(&mut resp)?,
                         get_next_value(&mut resp)?,
                     )),
