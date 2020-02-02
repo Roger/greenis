@@ -66,6 +66,7 @@ pub type RedisValue = BulkString;
 pub enum RedisCmd {
     Ping(Option<RedisValue>),
     Get(RedisKey),
+    Delete(Vec<RedisKey>),
     Set(RedisKey, RedisValue),
     Append(RedisKey, RedisValue),
     Keys(RedisValue),
@@ -95,6 +96,17 @@ impl RedisCmd {
                 debug!("Setting: {}: {}", key, value);
                 storage.lock().unwrap().insert(key.clone(), value.clone());
                 RespValue::SimpleString("OK".into())
+            }
+            RedisCmd::Delete(keys) => {
+                debug!("Deleting key: {:?}", keys);
+                let mut storage = storage.lock().unwrap();
+                let mut removed = 0;
+                for key in keys {
+                    if let Some(_) = storage.remove(key) {
+                        removed += 1;
+                    }
+                }
+                RespValue::Integer(removed)
             }
             RedisCmd::Append(key, value) => {
                 debug!("Setting: {}: {}", key, value);
@@ -158,6 +170,20 @@ impl TryFrom<RespValue> for RedisCmd {
                         get_next_value(&mut resp)?,
                         get_next_value(&mut resp)?,
                     )),
+                    "DELETE" => {
+                        // let mut keys = Vec::with_capacity(resp.len());
+                        // keys = resp.into();
+                        Ok(RedisCmd::Delete(
+                            resp.drain(..)
+                                .map(|key| match key {
+                                    RespValue::BulkString(key) => key,
+                                    other => {
+                                        unreachable!(format!("Invalid Type for key: {:?}", other))
+                                    }
+                                })
+                                .collect(),
+                        ))
+                    }
                     "APPEND" => Ok(RedisCmd::Append(
                         get_next_value(&mut resp)?,
                         get_next_value(&mut resp)?,
