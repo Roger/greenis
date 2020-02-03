@@ -30,7 +30,7 @@ async fn decode(
             Ok(resp) => {
                 debug!("Decoded: {:?}", &resp);
                 match resp {
-                    None => break (),
+                    None => break,
                     Some(resp) => match RedisCmd::try_from(resp) {
                         Ok(cmd) => {
                             let storage = storage.clone();

@@ -102,7 +102,7 @@ impl RedisCmd {
                 let mut storage = storage.lock().unwrap();
                 let mut removed = 0;
                 for key in keys {
-                    if let Some(_) = storage.remove(key) {
+                    if storage.remove(key).is_some() {
                         removed += 1;
                     }
                 }
@@ -111,9 +111,11 @@ impl RedisCmd {
             RedisCmd::Append(key, value) => {
                 debug!("Setting: {}: {}", key, value);
                 let mut storage = storage.lock().unwrap();
-                let current_value = storage.entry(key.clone()).or_insert(BulkString("".into()));
+                let current_value = storage
+                    .entry(key.clone())
+                    .or_insert_with(|| BulkString("".into()));
                 current_value.append(value);
-                RespValue::Integer((&current_value).0.len() as i64)
+                RespValue::Integer(current_value.0.len() as i64)
             }
             RedisCmd::Keys(pattern) => {
                 debug!("pattern: {}", pattern);

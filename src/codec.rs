@@ -14,7 +14,7 @@ use combine::{
 use std::str;
 use tokio_util::codec::{Decoder, Encoder};
 
-use crate::types::{RespValue, BulkString};
+use crate::types::{BulkString, RespValue};
 
 pub struct RespCodec {
     pub state: AnySendPartialState,
@@ -158,9 +158,6 @@ impl Encoder for RespCodec {
                     self.encode(value, buf).unwrap();
                 });
             }
-            // t => {
-            //     return Err(format!("Unsuported Type: {:?}", t).into());
-            // }
         }
         Ok(())
     }
